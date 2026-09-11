@@ -8,7 +8,7 @@
 
 ## 硬规则
 
-- 在有签名 CPM 发行之前，必须保持拒绝安装。
+- 在有签名 CPM 发行之前，必须保持拒绝安装；bootstrap 通过 HTTPS 获取，不依赖本地仓库旁的脚本文件。
 - 不要把产品包或密钥放进本仓。
 - 本地 tarball 不是 CPM 发行，不能当激活证据。
 - 契约：`../peanut-hub/contracts/cpm-directory-packages.md`。
