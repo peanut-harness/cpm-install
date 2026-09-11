@@ -7,6 +7,7 @@ readonly target_project="${CPM_PROJECT:-}"
 readonly manifest_source="${CPM_RELEASE_MANIFEST_PATH:-${release_manifest_url}}"
 readonly bootstrap_source="${CPM_BOOTSTRAP_PATH:-${release_bootstrap_url}}"
 readonly manifest_validator_url="https://get.peanut-harness.dev/cpm/release-manifest.mjs"
+readonly runtime_manifest_url="https://get.peanut-harness.dev/cpm/runtime-manifest.mjs"
 
 if ! command -v curl >/dev/null 2>&1; then
   printf '%s\n' 'CPM bootstrap requires curl.' >&2
@@ -30,7 +31,7 @@ trap bootstrap_cleanup EXIT
 if [[ "${bootstrap_source}" == https://* ]]; then
   bootstrap_directory="$(mktemp -d "${TMPDIR:-/tmp}/peanut-cpm-bootstrap.XXXXXX")"
   bootstrap_path="${bootstrap_directory}/bootstrap.mjs"
-  if ! curl --fail --silent --show-error --location --proto '=https' -- "$bootstrap_source" > "$bootstrap_path" || ! curl --fail --silent --show-error --location --proto '=https' -- "$manifest_validator_url" > "${bootstrap_directory}/release-manifest.mjs"; then
+  if ! curl --fail --silent --show-error --location --proto '=https' -- "$bootstrap_source" > "$bootstrap_path" || ! curl --fail --silent --show-error --location --proto '=https' -- "$manifest_validator_url" > "${bootstrap_directory}/release-manifest.mjs" || ! curl --fail --silent --show-error --location --proto '=https' -- "$runtime_manifest_url" > "${bootstrap_directory}/runtime-manifest.mjs"; then
     printf '%s\n' 'CPM bootstrap script could not be downloaded.' >&2
     exit 1
   fi

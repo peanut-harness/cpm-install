@@ -15,6 +15,7 @@ try {
     $temporaryBootstrap = Join-Path $temporaryBootstrapDirectory "bootstrap.mjs"
     Invoke-WebRequest -Uri $bootstrapSource -OutFile $temporaryBootstrap -MaximumRedirection 0
     Invoke-WebRequest -Uri "https://get.peanut-harness.dev/cpm/release-manifest.mjs" -OutFile (Join-Path $temporaryBootstrapDirectory "release-manifest.mjs") -MaximumRedirection 0
+    Invoke-WebRequest -Uri "https://get.peanut-harness.dev/cpm/runtime-manifest.mjs" -OutFile (Join-Path $temporaryBootstrapDirectory "runtime-manifest.mjs") -MaximumRedirection 0
     $bootstrapPath = $temporaryBootstrap
   }
   $releaseJson = node $bootstrapPath $manifestSource $channel 2>$null

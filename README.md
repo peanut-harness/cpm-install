@@ -19,7 +19,7 @@ Expected endpoint after GitHub Pages and DNS are configured:
 CPM_PROJECT="$PWD" /bin/bash -c "$(curl -fsSL https://get.peanut-harness.dev/cpm/install.sh)"
 ```
 
-The shell and PowerShell launchers fetch `bootstrap.mjs` over HTTPS rather than
-assuming a repository checkout beside the launcher. `CPM_BOOTSTRAP_PATH` and
-`CPM_RELEASE_MANIFEST_PATH` are test/deployment overrides; normal users should
-leave both unset.
+The shell and PowerShell launchers fetch the bootstrap modules over HTTPS rather
+than assuming a repository checkout beside the launcher. `CPM_BOOTSTRAP_PATH`
+and `CPM_RELEASE_MANIFEST_PATH` are test/deployment overrides; normal users
+should leave both unset.
