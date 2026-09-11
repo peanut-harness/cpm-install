@@ -4,7 +4,7 @@
 
 ## 当前行为
 
-`install.sh` 与 `install.ps1` **失败关闭**：打印尚未发布并 exit 1，不改项目。`releases.json` 的 `releases` 为空。
+`install.sh` 与 `install.ps1` **失败关闭**：打印尚未发布并 exit 1，不改项目。`releases.json` 使用 schema v2，`releases` 为空；正式发行需 Ed25519 签名、公钥和 HTTPS 下载地址。
 
 ## 硬规则
 
