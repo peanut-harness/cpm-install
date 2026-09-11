@@ -35,9 +35,9 @@ export class CpmBootstrap {
         if (source.startsWith('https://')) {
             const response = await this.fetchImpl(source, { redirect: 'error' });
             if (!response.ok) throw new Error(`cpm_release_manifest_request_refused:${response.status}`);
-            return CpmReleaseManifest.parse(await response.json());
+            return CpmReleaseManifest.parse(await response.json(), process.env.CPM_TRUSTED_PUBLIC_KEY);
         }
-        return CpmReleaseManifest.read(source);
+        return CpmReleaseManifest.read(source, process.env.CPM_TRUSTED_PUBLIC_KEY);
     }
 
     /**

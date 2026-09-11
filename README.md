@@ -9,6 +9,10 @@ requires an HTTPS URL and SHA-256 digest, and carries an Ed25519 signature over
 its immutable identity and download fields. An empty release list remains a
 deliberate refusal state.
 
+Before enabling a non-empty release list, the deployment must provide the
+out-of-band `CPM_TRUSTED_PUBLIC_KEY` trust anchor. A key embedded only in the
+manifest is not trusted by itself.
+
 Expected endpoint after GitHub Pages and DNS are configured:
 
 ```bash

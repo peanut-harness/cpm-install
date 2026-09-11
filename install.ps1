@@ -6,11 +6,15 @@ $channel = if ($env:CPM_CHANNEL) { $env:CPM_CHANNEL } else { "stable" }
 
 $bootstrapPath = $bootstrapSource
 $temporaryBootstrap = $null
+$temporaryBootstrapDirectory = $null
 
 try {
   if ($bootstrapSource -like "https://*") {
-    $temporaryBootstrap = [System.IO.Path]::GetTempFileName() + ".mjs"
+    $temporaryBootstrapDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("peanut-cpm-bootstrap-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $temporaryBootstrapDirectory | Out-Null
+    $temporaryBootstrap = Join-Path $temporaryBootstrapDirectory "bootstrap.mjs"
     Invoke-WebRequest -Uri $bootstrapSource -OutFile $temporaryBootstrap -MaximumRedirection 0
+    Invoke-WebRequest -Uri "https://get.peanut-harness.dev/cpm/release-manifest.mjs" -OutFile (Join-Path $temporaryBootstrapDirectory "release-manifest.mjs") -MaximumRedirection 0
     $bootstrapPath = $temporaryBootstrap
   }
   $releaseJson = node $bootstrapPath $manifestSource $channel 2>$null
@@ -25,7 +29,7 @@ if ($env:CPM_PROJECT) {
   Write-Error "Requested project: $env:CPM_PROJECT"
 }
 Write-Error "No project changes were made."
-if ($temporaryBootstrap -and (Test-Path -LiteralPath $temporaryBootstrap)) {
-  Remove-Item -LiteralPath $temporaryBootstrap -Force -ErrorAction SilentlyContinue
+if ($temporaryBootstrapDirectory -and (Test-Path -LiteralPath $temporaryBootstrapDirectory)) {
+  Remove-Item -LiteralPath $temporaryBootstrapDirectory -Recurse -Force -ErrorAction SilentlyContinue
 }
 exit 1

@@ -10,9 +10,9 @@ export class CpmReleaseManifest {
      * @param manifestPath manifest 文件路径。
      * @returns 已校验 manifest。
      */
-    static async read(manifestPath) {
+    static async read(manifestPath, trustedPublicKey) {
         const value = JSON.parse(await readFile(manifestPath, 'utf8'));
-        return this.parse(value);
+        return this.parse(value, trustedPublicKey);
     }
 
     /**
@@ -20,9 +20,11 @@ export class CpmReleaseManifest {
      * @param value 未受信 JSON 值。
      * @returns 已校验 manifest。
      */
-    static parse(value) {
+    static parse(value, trustedPublicKey) {
         if (!isRecord(value) || value.schemaVersion !== 2 || !isChannel(value.channel) || !Array.isArray(value.releases)) throw new Error('cpm_release_manifest_invalid');
         const publicKey = value.publicKey;
+        if (value.releases.length > 0 && (typeof trustedPublicKey !== 'string' || trustedPublicKey.length === 0)) throw new Error('cpm_release_trust_anchor_missing');
+        if (value.releases.length > 0 && publicKey?.value !== trustedPublicKey) throw new Error('cpm_release_trust_anchor_mismatch');
         if (value.releases.length > 0 && (!isRecord(publicKey) || publicKey.algorithm !== 'ed25519' || publicKey.format !== 'spki-der-base64' || typeof publicKey.value !== 'string' || publicKey.value.length === 0)) throw new Error('cpm_release_public_key_missing');
         const releases = value.releases.map((release) => this.parseRelease(release, publicKey));
         const ids = new Set();

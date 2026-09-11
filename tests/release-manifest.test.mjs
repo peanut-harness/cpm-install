@@ -16,15 +16,20 @@ function signedRelease(key, version = '1.2.0', channel = 'stable') {
 test('accepts signed releases and selects the highest version per channel', () => {
     const { privateKey, publicKey } = generateKeyPairSync('ed25519');
     const publicKeyValue = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
-    const manifest = CpmReleaseManifest.parse({ schemaVersion: 2, channel: 'stable', publicKey: { algorithm: 'ed25519', format: 'spki-der-base64', value: publicKeyValue }, releases: [signedRelease(privateKey, '1.1.0'), signedRelease(privateKey, '1.2.0'), signedRelease(privateKey, '2.0.0', 'beta')] });
+    const manifest = CpmReleaseManifest.parse({ schemaVersion: 2, channel: 'stable', publicKey: { algorithm: 'ed25519', format: 'spki-der-base64', value: publicKeyValue }, releases: [signedRelease(privateKey, '1.1.0'), signedRelease(privateKey, '1.2.0'), signedRelease(privateKey, '2.0.0', 'beta')] }, publicKeyValue);
     assert.equal(CpmReleaseManifest.select(manifest).version, '1.2.0');
     assert.equal(CpmReleaseManifest.select(manifest, 'beta').version, '2.0.0');
+});
+
+test('requires a fixed trust anchor when bootstrap parses a non-empty release list', () => {
+    const release = { schemaVersion: 2, channel: 'stable', publicKey: { algorithm: 'ed25519', format: 'spki-der-base64', value: 'key' }, releases: [{ id: 'peanut.cpm', version: '1.0.0', channel: 'stable', url: 'https://example.test/cpm.tgz', sha256: 'a'.repeat(64), signature: 'sig' }] };
+    assert.throws(() => CpmReleaseManifest.parse(release, 'different-key'), /cpm_release_trust_anchor_mismatch/u);
 });
 
 test('rejects unsigned, non-HTTPS, duplicate, and empty-release mistakes', () => {
     const empty = CpmReleaseManifest.parse({ schemaVersion: 2, channel: 'stable', releases: [] });
     assert.equal(CpmReleaseManifest.select(empty), null);
-    assert.throws(() => CpmReleaseManifest.parse({ schemaVersion: 2, channel: 'stable', releases: [{ id: 'peanut.cpm', version: '1.0.0', channel: 'stable', url: 'http://example.test/cpm.tgz', sha256: 'a'.repeat(64), signature: 'bad' }] }), /cpm_release_public_key_missing/u);
+    assert.throws(() => CpmReleaseManifest.parse({ schemaVersion: 2, channel: 'stable', releases: [{ id: 'peanut.cpm', version: '1.0.0', channel: 'stable', url: 'http://example.test/cpm.tgz', sha256: 'a'.repeat(64), signature: 'bad' }] }), /cpm_release_trust_anchor_missing/u);
 });
 
 test('reads an empty release manifest from disk without enabling installation', async () => {
