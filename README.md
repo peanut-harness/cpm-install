@@ -55,9 +55,8 @@ The installed CLI, not the bootstrap, authenticates Lite products:
 source commit, Host/Core HTTPS URLs, archive SHA-256 values, directory-package
 digests and the exact Creator profiles (`3.8.3`, `3.8.7`, ascending).
 
-Product keys are pinned in `cli/product-trust-anchors.mjs` and must differ
-from the CPM release keys. The list is empty until the controlled product
-signing keys are issued, so every non-empty catalog is refused. Catalog and
+Product keys are pinned in `cli/product-trust-anchors.mjs` (current and next
+for rotation) and must differ from the CPM release keys. Catalog and
 archive downloads refuse redirects, a published `id@version` may never change
 its signed fields, and a Lite release descriptor must match the signed entry
 field for field. Local tests may inject `CPM_TEST_PRODUCT_TRUSTED_PUBLIC_KEYS`

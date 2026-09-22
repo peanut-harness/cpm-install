@@ -177,7 +177,7 @@ test('CLI installs from a local signed catalog only behind the explicit test gat
         assert.equal(JSON.parse(again.stdout).status, 'unchanged');
         const ungated = spawnSync(process.execPath, args, { encoding: 'utf8', env: { ...env, CPM_TEST_MODE: '0' } });
         assert.equal(ungated.status, 1);
-        assert.match(ungated.stderr, /cpm_product_trust_anchor_missing/u);
+        assert.match(ungated.stderr, /cpm_product_trust_anchor_mismatch/u);
         const usage = spawnSync(process.execPath, [join(repositoryRoot, 'cli/cpm.mjs'), 'lite', 'install', '--json'], { encoding: 'utf8', env });
         assert.equal(usage.status, 2);
     } finally {

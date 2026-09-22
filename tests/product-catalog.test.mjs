@@ -136,8 +136,9 @@ test('rejects malformed URLs, unsupported or non-canonical profiles', () => {
 test('requires a dedicated product trust anchor distinct from CPM release keys', () => {
     const key = signer();
     const products = [signed(key, productFields())];
-    assert.deepEqual(LITE_PRODUCT_TRUST_ANCHORS, []);
-    assert.throws(() => LiteProductCatalog.parse(catalog(key, products)), /cpm_product_trust_anchor_missing/u);
+    assert.deepEqual(LITE_PRODUCT_TRUST_ANCHORS.map((anchor) => anchor.keyId), ['lite-product-2026-01', 'lite-product-2026-02']);
+    assert.equal(LITE_PRODUCT_TRUST_ANCHORS.some((anchor) => CPM_RELEASE_TRUST_ANCHORS.some((cpm) => cpm.value === anchor.value)), false);
+    assert.throws(() => LiteProductCatalog.parse(catalog(key, products)), /cpm_product_trust_anchor_mismatch/u);
     assert.throws(() => LiteProductCatalog.parse(catalog(key, products), { allowTestTrustAnchors: true, testTrustAnchors: [{ keyId: 'other', value: 'other' }] }), /cpm_product_trust_anchor_mismatch/u);
     assert.throws(() => LiteProductCatalog.parse(catalog(key, products), { testTrustAnchors: [key.anchor] }), /cpm_product_test_trust_anchor_refused/u);
     const cpmKey = { ...CPM_RELEASE_TRUST_ANCHORS[0] };
@@ -206,7 +207,7 @@ test('reads HTTPS catalogs without redirects and never with test anchors', async
             seen.push(init.redirect);
             return { ok: true, redirected: false, json: async () => body };
         }),
-        /cpm_product_trust_anchor_missing/u,
+        /cpm_product_trust_anchor_mismatch/u,
     );
     assert.deepEqual(seen, ['error']);
     await assert.rejects(
@@ -228,7 +229,7 @@ test('CLI resolves a local test catalog only behind the explicit test gate', asy
         assert.equal(JSON.parse(resolved.stdout).version, '0.2.0');
         const ungated = spawnSync(process.execPath, [entry, 'product', 'resolve', catalogPath, 'beta', '--json'], { encoding: 'utf8', env: { ...env, CPM_TEST_MODE: '0' } });
         assert.equal(ungated.status, 1);
-        assert.match(ungated.stderr, /cpm_product_trust_anchor_missing/u);
+        assert.match(ungated.stderr, /cpm_product_trust_anchor_mismatch/u);
         const stable = spawnSync(process.execPath, [entry, 'product', 'resolve', catalogPath, '--json'], { encoding: 'utf8', env });
         assert.equal(stable.status, 1);
         assert.match(stable.stderr, /cpm_product_unavailable/u);
