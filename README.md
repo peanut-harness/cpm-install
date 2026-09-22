@@ -93,6 +93,11 @@ previous version records.
 Local tests may add `CPM_TEST_PRODUCT_ARCHIVE_DIR` to serve archives by file
 name; it applies only with `CPM_TEST_MODE=1` and a local catalog.
 
+## Releasing the CLI
+
+Candidate build, controlled signing, immutable upload with read-back and
+manifest updates are described in [docs/release-policy.md](docs/release-policy.md).
+
 The following machine-readable error codes are the compatibility baseline for
 the release and runtime validators:
 
@@ -136,3 +141,10 @@ the release and runtime validators:
   `cpm_lite_repair_required`, `cpm_lite_install_unchanged:<cause>`,
   `cpm_lite_install_recovered:<cause>`, and
   `cpm_lite_install_may_have_changed:<cause>`.
+- Release tooling: `cpm_release_source_dirty`, `cpm_release_url_invalid`,
+  `cpm_release_signing_key_missing`, `cpm_release_signing_key_invalid`,
+  `cpm_release_signing_key_not_anchored`, `cpm_release_manifest_key_mismatch`,
+  `cpm_release_version_overwrite`, `cpm_release_readback_redirect_refused`,
+  `cpm_release_readback_refused:<status>`, `cpm_release_readback_mismatch`,
+  `cpm_release_secret_detected`, `cpm_release_third_party_dependency:<name>`,
+  and `cpm_release_runtime_import_missing:<path>`.

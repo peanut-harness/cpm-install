@@ -10,6 +10,8 @@
 
 `cpm lite install|upgrade|repair` 把 Host 写入 `extensions/peanut-pod-lite-host`、Core 写入 `peanut-plugins/plugins/<id>/<v>`、原子重写 schema v2 `installed.json`（保留 Pro 等其他插件）；Creator 打开工程或无法判定即拒绝，持 Lite `.installed.lock`；激活前失败 unchanged，激活后失败恢复为 recovered，无法证明则 may_have_changed 并保留 `.cpm-transactions` journal。
 
+发行流程见 `docs/release-policy.md`：`scripts/release-cli.mjs` build（干净树、确定性 archive+CycloneDX SBOM、无第三方依赖、秘密扫描）→ sign（仅固定锚私钥，dry-run 无需密钥）→ 不可变上传后 readback 摘要 → merge（同版本不可改写、不混签名键）；CI 仅手动 main 分支，私钥只在受保护环境 `cpm-release-signing`。
+
 ## 硬规则
 
 - 在有签名 CPM 发行之前，必须保持拒绝安装；bootstrap 及运行时清单模块通过 HTTPS 获取，不依赖本地仓库旁的脚本文件。

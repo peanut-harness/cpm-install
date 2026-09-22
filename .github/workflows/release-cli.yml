@@ -1,0 +1,77 @@
+name: Release CPM CLI candidate
+
+# Manual only: never runs for pushes, pull requests or forks. The signing key
+# lives exclusively in the protected `cpm-release-signing` environment, which
+# must require reviewer approval and allow only the main branch.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel for the signed entry (stable is published separately after evidence gates)
+        type: choice
+        options: [beta, internal]
+        default: beta
+      base_url:
+        description: Immutable HTTPS directory that will host the archive (no trailing slash)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpm-cli-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/*.test.mjs
+      - run: node scripts/release-cli.mjs build --out candidate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpm-cli-candidate
+          path: candidate/
+          if-no-files-found: error
+
+  sign:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: cpm-release-signing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpm-cli-candidate
+          path: candidate
+      - name: Sign release entry
+        env:
+          CPM_RELEASE_SIGNING_KEY: ${{ secrets.CPM_RELEASE_SIGNING_KEY }}
+          CHANNEL: ${{ inputs.channel }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          candidate="$(ls candidate/*.candidate.json)"
+          archive="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).archive.name)' "$candidate")"
+          node scripts/release-cli.mjs sign --candidate "$candidate" --channel "$CHANNEL" --url "$BASE_URL/$archive" > signed-release.json
+          unset CPM_RELEASE_SIGNING_KEY
+          node --input-type=module -e 'import { assertNoSecrets } from "./scripts/release-cli.mjs"; import { readFileSync } from "node:fs"; assertNoSecrets([readFileSync("signed-release.json", "utf8")]);'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpm-cli-signed-release
+          path: signed-release.json
+          if-no-files-found: error
