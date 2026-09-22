@@ -37,9 +37,21 @@ export class CpmBootstrap {
         if (source.startsWith('https://')) {
             const response = await this.fetchImpl(source, { redirect: 'error' });
             if (!response.ok) throw new Error(`cpm_release_manifest_request_refused:${response.status}`);
-            return CpmReleaseManifest.parse(await response.json(), process.env.CPM_TRUSTED_PUBLIC_KEY);
+            return CpmReleaseManifest.parse(await response.json());
         }
-        return CpmReleaseManifest.read(source, process.env.CPM_TRUSTED_PUBLIC_KEY);
+        return CpmReleaseManifest.read(source, testTrustAnchorOptions());
+    }
+
+    function testTrustAnchorOptions() {
+        const encoded = process.env.CPM_TEST_TRUSTED_PUBLIC_KEYS;
+        if (process.env.CPM_TEST_MODE !== '1' || encoded == null) return undefined;
+        let anchors;
+        try {
+            anchors = JSON.parse(encoded);
+        } catch {
+            throw new Error('cpm_release_test_trust_anchor_invalid');
+        }
+        return { allowTestTrustAnchors: true, testTrustAnchors: anchors };
     }
 
     /**

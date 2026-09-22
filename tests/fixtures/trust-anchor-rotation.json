@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "vectors": [
+    {
+      "anchor": "current",
+      "keyId": "cpm-release-2026-01",
+      "publicKey": "MCowBQYDK2VwAyEAvj6GwLqVzpWm22TI8V2CbK3MZkj7jE5b/eD713SN+h8=",
+      "fields": {
+        "id": "peanut-cpm-cli",
+        "version": "1.0.0",
+        "channel": "beta",
+        "url": "https://releases.peanut-harness.dev/cpm/1.0.0/peanut-cpm-cli.tgz",
+        "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "signature": "nQnNyKt8Odf0gR6tEUyejT4MSll3OAyp0R/y59ZPjxHDi9SLS6jOvy2MrmrKQm97D2PTIhSzlp6ibQMV0v4KAw=="
+    },
+    {
+      "anchor": "next",
+      "keyId": "cpm-release-2026-02",
+      "publicKey": "MCowBQYDK2VwAyEATbFfQlCT6C+QkLSJyg74oLGWknOhYFPw8ECxaI417Qs=",
+      "fields": {
+        "id": "peanut-cpm-cli",
+        "version": "1.1.0",
+        "channel": "beta",
+        "url": "https://releases.peanut-harness.dev/cpm/1.1.0/peanut-cpm-cli.tgz",
+        "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "signature": "6afTRcO3pJfLN3/Z23wckSHHBMqia1Xuq9Rp39y9z1NBUrtnSjSERzS16o5AlPHfkghID5shTiI1xBTzygAVAg=="
+    }
+  ]
+}

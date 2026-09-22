@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { CpmSigningProtocol } from './signing-protocol.mjs';
+import { CPM_RELEASE_TRUST_ANCHORS } from './trust-anchors.mjs';
 
 /**
  * @description 校验 CPM release manifest，并选择指定渠道的最新发行。
@@ -11,9 +12,9 @@ export class CpmReleaseManifest {
      * @param manifestPath manifest 文件路径。
      * @returns 已校验 manifest。
      */
-    static async read(manifestPath, trustedPublicKey) {
+    static async read(manifestPath, options) {
         const value = JSON.parse(await readFile(manifestPath, 'utf8'));
-        return this.parse(value, trustedPublicKey);
+        return this.parse(value, options);
     }
 
     /**
@@ -21,18 +22,25 @@ export class CpmReleaseManifest {
      * @param value 未受信 JSON 值。
      * @returns 已校验 manifest。
      */
-    static parse(value, trustedPublicKey) {
+    static parse(value, options) {
         if (!isRecord(value) || value.schemaVersion !== 2 || !isChannel(value.channel) || !Array.isArray(value.releases)) throw new Error('cpm_release_manifest_invalid');
         const publicKey = value.publicKey;
-        if (value.releases.length > 0 && (typeof trustedPublicKey !== 'string' || trustedPublicKey.length === 0)) throw new Error('cpm_release_trust_anchor_missing');
-        if (value.releases.length > 0 && publicKey?.value !== trustedPublicKey) throw new Error('cpm_release_trust_anchor_mismatch');
-        if (value.releases.length > 0 && (!isRecord(publicKey) || publicKey.algorithm !== 'ed25519' || publicKey.format !== 'spki-der-base64' || typeof publicKey.value !== 'string' || publicKey.value.length === 0)) throw new Error('cpm_release_public_key_missing');
+        if (value.releases.length > 0 && (!isRecord(publicKey) || typeof publicKey.keyId !== 'string' || publicKey.algorithm !== 'ed25519' || publicKey.format !== 'spki-der-base64' || typeof publicKey.value !== 'string' || publicKey.value.length === 0)) throw new Error('cpm_release_public_key_missing');
+        const trustAnchors = resolveTrustAnchors(options);
+        if (value.releases.length > 0 && trustAnchors.length === 0) throw new Error('cpm_release_trust_anchor_missing');
+        if (value.releases.length > 0 && !trustAnchors.some((anchor) => anchor.keyId === publicKey.keyId && anchor.value === publicKey.value)) throw new Error('cpm_release_trust_anchor_mismatch');
         const releases = value.releases.map((release) => this.parseRelease(release, publicKey));
         const ids = new Set();
         for (const release of releases) {
             const key = `${release.id}@${release.version}`;
             if (ids.has(key)) throw new Error('cpm_release_duplicate');
             ids.add(key);
+        }
+
+        function resolveTrustAnchors(options) {
+            if (options == null) return CPM_RELEASE_TRUST_ANCHORS;
+            if (!isRecord(options) || options.allowTestTrustAnchors !== true || !Array.isArray(options.testTrustAnchors)) throw new Error('cpm_release_test_trust_anchor_refused');
+            return options.testTrustAnchors.filter((anchor) => isRecord(anchor) && typeof anchor.keyId === 'string' && typeof anchor.value === 'string');
         }
         return Object.freeze({ schemaVersion: 2, channel: value.channel, publicKey: publicKey ?? null, releases: Object.freeze(releases) });
     }

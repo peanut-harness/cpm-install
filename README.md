@@ -9,9 +9,10 @@ requires an HTTPS URL and SHA-256 digest, and carries an Ed25519 signature over
 its immutable identity and download fields. An empty release list remains a
 deliberate refusal state.
 
-Before enabling a non-empty release list, the deployment must provide the
-out-of-band `CPM_TRUSTED_PUBLIC_KEY` trust anchor. A key embedded only in the
-manifest is not trusted by itself.
+Non-empty release lists are verified against the public keys pinned in
+`trust-anchors.mjs`. A key embedded only in the manifest is not trusted by
+itself. The two pinned anchors support an explicit rotation window; production
+trust cannot be replaced through an environment variable.
 
 Expected endpoint after GitHub Pages and DNS are configured:
 
@@ -23,6 +24,11 @@ The shell and PowerShell launchers fetch the bootstrap modules over HTTPS rather
 than assuming a repository checkout beside the launcher. `CPM_BOOTSTRAP_PATH`
 and `CPM_RELEASE_MANIFEST_PATH` are test/deployment overrides; normal users
 should leave both unset.
+
+Local tests may set `CPM_TEST_MODE=1` together with
+`CPM_TEST_TRUSTED_PUBLIC_KEYS` and a local manifest path. The override is
+refused unless the explicit test gate is active and is never consulted for an
+HTTPS manifest.
 
 ## Fail-closed compatibility baseline
 
