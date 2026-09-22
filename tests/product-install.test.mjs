@@ -269,6 +269,7 @@ function hostFiles(version) {
         ['package.json', Buffer.from(JSON.stringify({ name: 'peanut-pod-lite-host', version, main: './dist/main.js' }))],
         ['dist/main.js', Buffer.from(`host ${version}`)],
         ['panels/standalone/.gitkeep', Buffer.alloc(0)],
+        ['dist/main.js.map', Buffer.from('map')],
     ]);
 }
 
@@ -279,6 +280,7 @@ function coreFiles(version) {
         ['libs/.keep', Buffer.alloc(0)],
         ['bundled/default_prefab/2d.meta', Buffer.from('meta')],
         ['bundled/default_prefab_24/2d-camera.prefab', Buffer.from('camera')],
+        ['bundled/default_prefab_24/2d-camera.prefab.meta', Buffer.from('camera meta')],
     ]);
     const files = [...payload.entries()].map(([path, content]) => ({ path, digest: sha256(content) }));
     const manifest = { id: 'peanut.pod-lite', version, kind: 'tooling-plugin', main: './peanut.pod-lite.bundle.js', package: { schemaVersion: 1, files, digest: packageDigest(payload) } };
@@ -286,7 +288,7 @@ function coreFiles(version) {
 }
 
 function packageDigest(files) {
-    const records = [...files.entries()].map(([path, content]) => `${path}:${sha256(content)}`).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+    const records = [...files.entries()].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)).map(([path, content]) => `${path}:${sha256(content)}`);
     return sha256(records.join('\n'));
 }
 
