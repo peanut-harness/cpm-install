@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, readFile, rename, rm, rmdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { gunzipSync } from 'node:zlib';
 
@@ -42,13 +42,13 @@ export class CpmRuntimeInstallTransaction {
             if (!response.ok) throw new Error(`cpm_release_request_refused:${response.status}`);
             const content = new Uint8Array(await response.arrayBuffer());
             if (!CpmReleaseManifest.verifyDigest(content, release.sha256)) throw new Error('cpm_release_digest_mismatch');
-            inspectArchive(content);
+            const entries = inspectArchive(content);
             await writeFile(archive, content, { flag: 'wx' });
             await journal.write('downloaded');
             await this.emit('downloaded');
 
             await mkdir(staging);
-            await runFile('tar', ['-xzf', archive, '-C', staging]);
+            await extractEntries(entries, staging);
             const manifest = CpmRuntimeManifest.parse(JSON.parse(await readFile(join(staging, 'runtime.manifest.json'), 'utf8')));
             if (manifest.id !== release.id || manifest.version !== release.version) throw new Error('cpm_runtime_release_mismatch');
             await CpmRuntimeManifest.verifyDirectory(staging, manifest);
@@ -136,6 +136,7 @@ function inspectArchive(content) {
         throw new Error('cpm_runtime_archive_invalid');
     }
     const paths = new Set();
+    const entries = [];
     let zeroBlocks = 0;
     for (let offset = 0; offset + 512 <= tar.length; offset += 512) {
         const header = tar.subarray(offset, offset + 512);
@@ -143,7 +144,7 @@ function inspectArchive(content) {
             zeroBlocks += 1;
             if (zeroBlocks === 2) {
                 if (tar.subarray(offset + 512).some((value) => value !== 0)) throw new Error('cpm_runtime_archive_hidden_payload');
-                return;
+                return entries;
             }
             continue;
         }
@@ -160,9 +161,24 @@ function inspectArchive(content) {
         paths.add(path);
         if (type !== 0 && type !== 0x30 && type !== 0x35) throw new Error('cpm_runtime_archive_special_file_rejected');
         if (type === 0x35 && size !== 0) throw new Error('cpm_runtime_archive_invalid');
+        if (offset + 512 + size > tar.length) throw new Error('cpm_runtime_archive_truncated');
+        entries.push({ path: path.replace(/\\/gu, '/').replace(/\/$/u, ''), directory: type === 0x35, content: tar.subarray(offset + 512, offset + 512 + size) });
         offset += Math.ceil(size / 512) * 512;
     }
     throw new Error('cpm_runtime_archive_truncated');
+}
+
+/** @description 按已校验的 ustar 条目写入暂存目录；不依赖各平台行为不一的系统 tar。 */
+async function extractEntries(entries, staging) {
+    for (const entry of entries) {
+        const target = join(staging, ...entry.path.split('/'));
+        if (entry.directory) {
+            await mkdir(target, { recursive: true });
+            continue;
+        }
+        await mkdir(dirname(target), { recursive: true });
+        await writeFile(target, entry.content, { flag: 'wx' });
+    }
 }
 
 function isSafeArchivePath(value) {
