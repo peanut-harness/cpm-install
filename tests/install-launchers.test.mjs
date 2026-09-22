@@ -12,7 +12,7 @@ import { CpmSigningProtocol } from '../signing-protocol.mjs';
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
-test('Bash launcher installs, verifies, and idempotently reuses the signed runtime', async () => {
+test('Bash launcher installs, verifies, and idempotently reuses the signed runtime', { skip: process.platform === 'win32' }, async () => {
     const fixture = await createFixture('bash');
     try {
         const first = runLauncher('/bin/bash', [join(repositoryRoot, 'install.sh')], fixture.env);

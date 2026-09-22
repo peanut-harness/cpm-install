@@ -37,7 +37,7 @@ async function runLauncher(command, args) {
     }
 }
 
-test('Bash launcher fails closed without modifying the requested project', async () => {
+test('Bash launcher fails closed without modifying the requested project', { skip: process.platform === 'win32' }, async () => {
     await runLauncher('/bin/bash', [join(repositoryRoot, 'install.sh')]);
 });
 

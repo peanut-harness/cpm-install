@@ -12,6 +12,8 @@
 
 发行流程见 `docs/release-policy.md`：`scripts/release-cli.mjs` build（干净树、确定性 archive+CycloneDX SBOM、无第三方依赖、秘密扫描）→ sign（仅固定锚私钥，dry-run 无需密钥）→ 不可变上传后 readback 摘要 → merge（同版本不可改写、不混签名键）；CI 仅手动 main 分支，私钥只在受保护环境 `cpm-release-signing`。
 
+无长期密钥的本地演练：`scripts/local-rehearsal.mjs` 每次在内存生成一次性 CPM/产品密钥，签本地 manifest/catalog，经真实 Bash/PowerShell 入口装 CLI 再 `cpm lite` 装工程；只走 `CPM_TEST_MODE=1`+本地文件门禁，不削弱公共验签。CI `test.yml` 在 Ubuntu/macOS/Windows 跑全量测试。
+
 ## 硬规则
 
 - 在有签名 CPM 发行之前，必须保持拒绝安装；bootstrap 及运行时清单模块通过 HTTPS 获取，不依赖本地仓库旁的脚本文件。

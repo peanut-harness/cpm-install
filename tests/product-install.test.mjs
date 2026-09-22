@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, generateKeyPairSync, sign } from 'node:crypto';
+import { generateKeyPairSync, sign } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -12,6 +12,7 @@ import { CreatorOccupancy } from '../cli/install/creator-occupancy.mjs';
 import { LiteProjectInstaller } from '../cli/install/lite-project-installer.mjs';
 import { LiteProductCatalog } from '../cli/product-catalog.mjs';
 import { CpmSigningProtocol } from '../signing-protocol.mjs';
+import { coreFiles, hostFiles, packageDigest, sha256, tarGzip } from './fixtures/lite-release.mjs';
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const key = (() => {
@@ -264,52 +265,10 @@ function proIndex() {
     return { schemaVersion: 2, plugins: [{ pluginId: 'peanut.cocos-mcp-pro', activeVersion: '1.0.0', versions: [{ version: '1.0.0', installPath: join('peanut-plugins', 'plugins', 'peanut.cocos-mcp-pro', '1.0.0') }] }] };
 }
 
-function hostFiles(version) {
-    return new Map([
-        ['package.json', Buffer.from(JSON.stringify({ name: 'peanut-pod-lite-host', version, main: './dist/main.js' }))],
-        ['dist/main.js', Buffer.from(`host ${version}`)],
-        ['panels/standalone/.gitkeep', Buffer.alloc(0)],
-        ['dist/main.js.map', Buffer.from('map')],
-    ]);
-}
 
-function coreFiles(version) {
-    const payload = new Map([
-        ['peanut.pod-lite.bundle.js', Buffer.from(`core ${version}`)],
-        ['package.json', Buffer.from('{"type":"commonjs"}')],
-        ['libs/.keep', Buffer.alloc(0)],
-        ['bundled/default_prefab/2d.meta', Buffer.from('meta')],
-        ['bundled/default_prefab_24/2d-camera.prefab', Buffer.from('camera')],
-        ['bundled/default_prefab_24/2d-camera.prefab.meta', Buffer.from('camera meta')],
-    ]);
-    const files = [...payload.entries()].map(([path, content]) => ({ path, digest: sha256(content) }));
-    const manifest = { id: 'peanut.pod-lite', version, kind: 'tooling-plugin', main: './peanut.pod-lite.bundle.js', package: { schemaVersion: 1, files, digest: packageDigest(payload) } };
-    return new Map([...payload, ['peanut.pod-lite.manifest.json', Buffer.from(JSON.stringify(manifest))]]);
-}
 
-function packageDigest(files) {
-    const records = [...files.entries()].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)).map(([path, content]) => `${path}:${sha256(content)}`);
-    return sha256(records.join('\n'));
-}
 
-function tarGzip(rootName, files) {
-    const blocks = [header(`${rootName}/`, 0, 0x35)];
-    for (const [path, content] of [...files.entries()].sort(([left], [right]) => (left < right ? -1 : 1))) {
-        blocks.push(header(`${rootName}/${path}`, content.length, 0x30), content, Buffer.alloc((512 - (content.length % 512)) % 512));
-    }
-    blocks.push(Buffer.alloc(1024));
-    return gzipSync(Buffer.concat(blocks));
-}
 
-function header(path, size, type) {
-    const block = Buffer.alloc(512);
-    block.write(path, 0, 100, 'utf8');
-    block.write('0000644\0', 100);
-    block.write(`${size.toString(8).padStart(11, '0')}\0`, 124);
-    block[156] = type;
-    block.write('ustar\0', 257);
-    return block;
-}
 
 async function snapshot(root) {
     const entries = {};
@@ -328,6 +287,3 @@ async function snapshot(root) {
     return entries;
 }
 
-function sha256(content) {
-    return createHash('sha256').update(content).digest('hex');
-}

@@ -93,6 +93,17 @@ previous version records.
 Local tests may add `CPM_TEST_PRODUCT_ARCHIVE_DIR` to serve archives by file
 name; it applies only with `CPM_TEST_MODE=1` and a local catalog.
 
+## Local rehearsal without long-lived keys
+
+`node scripts/local-rehearsal.mjs --lite-release <lite release dir> --work <empty dir> [--project <creator project>] [--action install|upgrade|repair] [--launcher bash|powershell]`
+rehearses the whole chain on the current machine without any managed key: it
+generates throwaway CPM and product Ed25519 keys in memory, signs a local
+manifest and product catalog, installs the CLI through the real Bash (macOS,
+Linux) or PowerShell (Windows) launcher into `<work>/cpm-home`, and runs
+`cpm lite <action>` against the project. Private keys never touch disk, and the
+injection only works through the `CPM_TEST_MODE=1` local-file gate, so public
+HTTPS installs still require the pinned production anchors.
+
 ## Releasing the CLI
 
 Candidate build, controlled signing, immutable upload with read-back and
