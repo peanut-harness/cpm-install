@@ -46,6 +46,23 @@ Local tests may additionally set `CPM_TEST_RELEASE_ARCHIVE_PATH` to install a
 locally built runtime archive; it is honored only with `CPM_TEST_MODE=1` and a
 local manifest. Tests run the launchers against temporary fixtures only.
 
+## Lite product catalog
+
+The installed CLI, not the bootstrap, authenticates Lite products:
+`cpm product resolve <catalog> [channel] --json` reads a
+`lite-product-catalog` (schema 1) whose entries are signed with the
+`lite-product-v1` payload. Each entry binds the product id, version, channel,
+source commit, Host/Core HTTPS URLs, archive SHA-256 values, directory-package
+digests and the exact Creator profiles (`3.8.3`, `3.8.7`, ascending).
+
+Product keys are pinned in `cli/product-trust-anchors.mjs` and must differ
+from the CPM release keys. The list is empty until the controlled product
+signing keys are issued, so every non-empty catalog is refused. Catalog and
+archive downloads refuse redirects, a published `id@version` may never change
+its signed fields, and a Lite release descriptor must match the signed entry
+field for field. Local tests may inject `CPM_TEST_PRODUCT_TRUSTED_PUBLIC_KEYS`
+only with `CPM_TEST_MODE=1` and a local catalog path.
+
 The following machine-readable error codes are the compatibility baseline for
 the release and runtime validators:
 
@@ -64,3 +81,13 @@ the release and runtime validators:
   `cpm_runtime_integrity_mismatch`, `cpm_runtime_symbolic_link_rejected`,
   `cpm_runtime_special_file_rejected`, and
   `cpm_runtime_version_already_installed`.
+- Product catalog: `cpm_product_catalog_invalid`,
+  `cpm_product_catalog_source_missing`,
+  `cpm_product_catalog_request_refused:<status>`,
+  `cpm_product_public_key_missing`, `cpm_product_key_reuse`,
+  `cpm_product_trust_anchor_missing`, `cpm_product_trust_anchor_mismatch`,
+  `cpm_product_test_trust_anchor_refused`, `cpm_product_entry_invalid`,
+  `cpm_product_signature_invalid`, `cpm_product_duplicate`,
+  `cpm_product_version_overwrite`, `cpm_product_identity_mismatch`,
+  `cpm_product_redirect_refused`, `cpm_product_request_refused:<status>`,
+  `cpm_product_digest_mismatch`, and `cpm_product_unavailable`.

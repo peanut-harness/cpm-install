@@ -12,6 +12,7 @@ import { buildRuntimeArchive } from '../scripts/build-runtime.mjs';
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const scratchRoot = join(repositoryRoot, 'tests', `.runtime-builder-${process.pid}`);
+const RUNTIME_PATHS = Object.freeze(['cli/cpm.mjs', 'cli/product-catalog.mjs', 'cli/product-trust-anchors.mjs', 'cli/runtime-config.mjs', 'signing-protocol.mjs', 'trust-anchors.mjs']);
 const expectedIdentity = Object.freeze({ schemaVersion: 1, id: 'peanut-cpm-cli', version: '1.0.0' });
 
 test.after(async () => {
@@ -29,10 +30,10 @@ test('builds byte-identical archives with a sorted per-file digest manifest', as
 
     assert.deepEqual(firstBytes, secondBytes);
     assert.equal(first.sha256, second.sha256);
-    assert.deepEqual(first.manifest.files.map(({ path }) => path), ['cli/cpm.mjs', 'cli/runtime-config.mjs']);
+    assert.deepEqual(first.manifest.files.map(({ path }) => path), RUNTIME_PATHS);
 
     const entries = readTar(firstBytes);
-    assert.deepEqual([...entries.keys()], ['cli/cpm.mjs', 'cli/runtime-config.mjs', 'runtime.manifest.json']);
+    assert.deepEqual([...entries.keys()], [...RUNTIME_PATHS, 'runtime.manifest.json'].sort((left, right) => left.localeCompare(right)));
     const manifest = CpmRuntimeManifest.parse(JSON.parse(entries.get('runtime.manifest.json').toString('utf8')));
     for (const record of manifest.files) {
         assert.equal(createHash('sha256').update(entries.get(record.path)).digest('hex'), record.sha256);
