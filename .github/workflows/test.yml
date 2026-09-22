@@ -23,4 +23,12 @@ jobs:
           node-version: 22
       - name: Test (Bash and PowerShell launchers where available)
         shell: bash
-        run: node --test tests/*.test.mjs
+        run: |
+          set -o pipefail
+          node --test tests/*.test.mjs 2>&1 | tee test-output.txt
+      - name: Report failing tests
+        if: failure()
+        shell: bash
+        run: |
+          summary="$(grep -E -A14 '^(not ok|✖|  ✖)' test-output.txt | head -150 | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')"
+          echo "::error title=node --test failures on ${{ matrix.os }}::${summary}"
