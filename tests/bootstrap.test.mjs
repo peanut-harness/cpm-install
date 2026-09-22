@@ -53,7 +53,7 @@ test('installs a tar.gz runtime only after runtime manifest and file digests pas
         const content = await (await import('node:fs/promises')).readFile(archive);
         const bootstrap = new CpmBootstrap(async () => ({ ok: true, arrayBuffer: async () => content.buffer }));
         const path = await bootstrap.install({ id: 'peanut-cpm-cli', version: '1.0.0', channel: 'stable', url: 'https://example.test/cpm-cli.tgz', sha256: (await import('node:crypto')).createHash('sha256').update(content).digest('hex'), signature: 'verified-by-manifest' }, join(root, 'install'));
-        assert.equal(path.endsWith('/versions/peanut-cpm-cli/1.0.0'), true);
+        assert.equal(path.endsWith(join('versions', 'peanut-cpm-cli', '1.0.0')), true);
         assert.equal((await (await import('node:fs/promises')).readFile(join(path, 'cli/cpm.mjs'), 'utf8')).includes('version --json'), true);
     } finally {
         await rm(root, { recursive: true, force: true });

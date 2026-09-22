@@ -22,8 +22,8 @@ test('installs, upgrades, and idempotently reuses exact runtime versions', async
         const upgraded = await bootstrap.install(releases.get('1.1.0').release, join(root, 'install'));
         const repeated = await bootstrap.install(releases.get('1.1.0').release, join(root, 'install'));
 
-        assert.equal(first.endsWith('/versions/peanut-cpm-cli/1.0.0'), true);
-        assert.equal(upgraded.endsWith('/versions/peanut-cpm-cli/1.1.0'), true);
+        assert.equal(first.endsWith(join('versions', 'peanut-cpm-cli', '1.0.0')), true);
+        assert.equal(upgraded.endsWith(join('versions', 'peanut-cpm-cli', '1.1.0')), true);
         assert.equal(repeated, upgraded);
         assert.deepEqual(JSON.parse(await readFile(join(root, 'install/current.json'), 'utf8')), {
             schemaVersion: 1,
