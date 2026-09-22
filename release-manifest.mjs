@@ -1,5 +1,6 @@
-import { createHash, createPublicKey, verify as verifySignature } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { CpmSigningProtocol } from './signing-protocol.mjs';
 
 /**
  * @description 校验 CPM release manifest，并选择指定渠道的最新发行。
@@ -60,13 +61,7 @@ export class CpmReleaseManifest {
     /** @description 校验单个发行记录及其 Ed25519 签名。 */
     static parseRelease(value, publicKey) {
         if (!isRecord(value) || typeof value.id !== 'string' || !/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u.test(value.id) || typeof value.version !== 'string' || !/^\d+\.\d+\.\d+$/u.test(value.version) || !isChannel(value.channel) || typeof value.url !== 'string' || !isHttpsUrl(value.url) || typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(value.sha256) || typeof value.signature !== 'string' || value.signature.length === 0 || !isRecord(publicKey)) throw new Error('cpm_release_entry_invalid');
-        const payload = JSON.stringify({ id: value.id, version: value.version, channel: value.channel, url: value.url, sha256: value.sha256 });
-        let valid = false;
-        try {
-            valid = verifySignature(null, Buffer.from(payload), createPublicKey({ key: Buffer.from(publicKey.value, 'base64'), format: 'der', type: 'spki' }), Buffer.from(value.signature, 'base64'));
-        } catch {
-            valid = false;
-        }
+        const valid = CpmSigningProtocol.verify('cpm-release-v1', value, value.signature, publicKey.value);
         if (!valid) throw new Error('cpm_release_signature_invalid');
         return Object.freeze({ id: value.id, version: value.version, channel: value.channel, url: value.url, sha256: value.sha256, signature: value.signature });
     }

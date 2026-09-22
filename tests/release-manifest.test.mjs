@@ -6,10 +6,11 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { CpmReleaseManifest } from '../release-manifest.mjs';
+import { CpmSigningProtocol } from '../signing-protocol.mjs';
 
 function signedRelease(key, version = '1.2.0', channel = 'stable') {
     const release = { id: 'peanut.cpm', version, channel, url: `https://get.peanut-harness.dev/cpm/peanut-cpm-${version}.tgz`, sha256: 'a'.repeat(64) };
-    const payload = JSON.stringify(release);
+    const payload = CpmSigningProtocol.canonicalize('cpm-release-v1', release);
     return { ...release, signature: sign(null, Buffer.from(payload), key).toString('base64') };
 }
 
