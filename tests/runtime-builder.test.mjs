@@ -12,7 +12,7 @@ import { buildRuntimeArchive } from '../scripts/build-runtime.mjs';
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const scratchRoot = join(repositoryRoot, 'tests', `.runtime-builder-${process.pid}`);
-const RUNTIME_PATHS = Object.freeze(['cli/cpm.mjs', 'cli/product-catalog.mjs', 'cli/product-trust-anchors.mjs', 'cli/runtime-config.mjs', 'signing-protocol.mjs', 'trust-anchors.mjs']);
+const RUNTIME_PATHS = Object.freeze(['cli/cpm.mjs', 'cli/install/creator-occupancy.mjs', 'cli/install/lite-project-installer.mjs', 'cli/install/product-archive.mjs', 'cli/product-catalog.mjs', 'cli/product-trust-anchors.mjs', 'cli/runtime-config.mjs', 'signing-protocol.mjs', 'trust-anchors.mjs']);
 const expectedIdentity = Object.freeze({ schemaVersion: 1, id: 'peanut-cpm-cli', version: '1.0.0' });
 
 test.after(async () => {
@@ -79,7 +79,7 @@ test('runtime payload contains no product packages, credentials, secrets, or adj
         /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/u,
         /\b(?:ghp|github_pat|glpat)-?[A-Za-z0-9_]{20,}\b/u,
         /\b(?:token|password|secret)\s*[:=]\s*["'][^"']+/iu,
-        /peanut-pod-(?:lite|pro)/iu,
+        /peanut-pod-(?:lite|pro)(?!-host\b)/iu,
         /peanut-workspace/iu,
         /\/Users\/|[A-Za-z]:\\/u,
     ];

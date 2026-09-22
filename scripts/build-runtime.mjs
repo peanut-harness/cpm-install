@@ -9,6 +9,9 @@ import { gzipSync } from 'node:zlib';
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const runtimeFiles = Object.freeze([
     Object.freeze({ path: 'cli/cpm.mjs', mode: 0o755 }),
+    Object.freeze({ path: 'cli/install/creator-occupancy.mjs', mode: 0o644 }),
+    Object.freeze({ path: 'cli/install/lite-project-installer.mjs', mode: 0o644 }),
+    Object.freeze({ path: 'cli/install/product-archive.mjs', mode: 0o644 }),
     Object.freeze({ path: 'cli/product-catalog.mjs', mode: 0o644 }),
     Object.freeze({ path: 'cli/product-trust-anchors.mjs', mode: 0o644 }),
     Object.freeze({ path: 'cli/runtime-config.mjs', mode: 0o644 }),

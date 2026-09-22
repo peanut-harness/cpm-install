@@ -63,6 +63,36 @@ its signed fields, and a Lite release descriptor must match the signed entry
 field for field. Local tests may inject `CPM_TEST_PRODUCT_TRUSTED_PUBLIC_KEYS`
 only with `CPM_TEST_MODE=1` and a local catalog path.
 
+## Lite project commands
+
+`cpm lite <install|upgrade|repair> --project <path> --catalog <catalog> [--channel <channel>] --json`
+installs Lite into a closed Creator 3.8 project. The command refuses while a
+Creator process has the project open (or when that cannot be determined),
+takes Lite's `peanut-plugins/.installed.lock`, and requires the project's
+`creator.version` to be one of the signed product's Creator profiles.
+
+Host and Core archives are downloaded without redirects, checked against the
+signed SHA-256 values, read in memory, and verified against the signed Host
+package digest and the Core manifest (per-file digests, exact payload set and
+package digest) before anything in the project changes. The command then
+places the Core in the immutable `peanut-plugins/plugins/<id>/<version>/`
+directory, swaps `extensions/peanut-pod-lite-host`, and atomically rewrites
+the schema v2 `peanut-plugins/installed.json`, preserving other plugins and
+previous version records.
+
+- `install` refuses when a different version is active; the same healthy
+  version reports `unchanged`, a damaged one requires `repair`.
+- `upgrade` moves to the highest catalog version and refuses downgrades.
+- `repair` reinstalls the active version from the catalog.
+- Failures before activation report `cpm_lite_install_unchanged:<cause>`.
+  Failures after activation restore the previous Host, Core directory and index
+  and report `cpm_lite_install_recovered:<cause>`; if that cannot be proven the
+  command reports `cpm_lite_install_may_have_changed:<cause>` and keeps the
+  journal under `peanut-plugins/.cpm-transactions/`.
+
+Local tests may add `CPM_TEST_PRODUCT_ARCHIVE_DIR` to serve archives by file
+name; it applies only with `CPM_TEST_MODE=1` and a local catalog.
+
 The following machine-readable error codes are the compatibility baseline for
 the release and runtime validators:
 
@@ -91,3 +121,18 @@ the release and runtime validators:
   `cpm_product_version_overwrite`, `cpm_product_identity_mismatch`,
   `cpm_product_redirect_refused`, `cpm_product_request_refused:<status>`,
   `cpm_product_digest_mismatch`, and `cpm_product_unavailable`.
+- Product archives: `cpm_product_archive_invalid`,
+  `cpm_product_archive_hidden_payload`, `cpm_product_archive_empty`,
+  `cpm_product_archive_truncated`, `cpm_product_archive_special_file_rejected`,
+  `cpm_product_archive_path_invalid`, `cpm_product_archive_duplicate_path`,
+  `cpm_product_archive_root_invalid`, `cpm_product_host_invalid`,
+  `cpm_product_core_manifest_invalid`, `cpm_product_core_payload_mismatch`, and
+  `cpm_product_package_digest_mismatch`.
+- Lite project commands: `cpm_lite_action_invalid`, `cpm_lite_project_invalid`,
+  `cpm_lite_creator_project_open`, `cpm_lite_creator_occupancy_unknown`,
+  `cpm_lite_creator_version_unsupported`, `cpm_lite_installed_index_invalid`,
+  `cpm_lite_project_locked`, `cpm_lite_not_installed`,
+  `cpm_lite_already_installed`, `cpm_lite_downgrade_refused`,
+  `cpm_lite_repair_required`, `cpm_lite_install_unchanged:<cause>`,
+  `cpm_lite_install_recovered:<cause>`, and
+  `cpm_lite_install_may_have_changed:<cause>`.
