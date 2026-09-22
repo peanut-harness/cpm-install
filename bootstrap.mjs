@@ -42,18 +42,6 @@ export class CpmBootstrap {
         return CpmReleaseManifest.read(source, testTrustAnchorOptions());
     }
 
-    function testTrustAnchorOptions() {
-        const encoded = process.env.CPM_TEST_TRUSTED_PUBLIC_KEYS;
-        if (process.env.CPM_TEST_MODE !== '1' || encoded == null) return undefined;
-        let anchors;
-        try {
-            anchors = JSON.parse(encoded);
-        } catch {
-            throw new Error('cpm_release_test_trust_anchor_invalid');
-        }
-        return { allowTestTrustAnchors: true, testTrustAnchors: anchors };
-    }
-
     /**
      * @description 下载已签名发行并以原子方式写入目标目录。
      * @param release 已通过 manifest 签名校验的发行。
@@ -107,6 +95,18 @@ export class CpmBootstrap {
             throw error;
         }
     }
+}
+
+function testTrustAnchorOptions() {
+    const encoded = process.env.CPM_TEST_TRUSTED_PUBLIC_KEYS;
+    if (process.env.CPM_TEST_MODE !== '1' || encoded == null) return undefined;
+    let anchors;
+    try {
+        anchors = JSON.parse(encoded);
+    } catch {
+        throw new Error('cpm_release_test_trust_anchor_invalid');
+    }
+    return { allowTestTrustAnchors: true, testTrustAnchors: anchors };
 }
 
 function isSafeArchivePath(value) {
