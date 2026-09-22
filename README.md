@@ -104,6 +104,19 @@ Linux) or PowerShell (Windows) launcher into `<work>/cpm-home`, and runs
 injection only works through the `CPM_TEST_MODE=1` local-file gate, so public
 HTTPS installs still require the pinned production anchors.
 
+## Built-in development keys
+
+`dev-signing.mjs` derives one CPM release key and one Lite product key from
+public seeds, so everyone has the same development keys and they authenticate
+nothing. They are trusted only when `CPM_DEV_KEYS=1` is set (a warning is
+printed), are refused for the `stable` channel, and the CPM dev key is never
+accepted for product catalogs. Sign development builds with
+`node scripts/release-cli.mjs sign --dev-key ...` (CLI) or
+`tsx tools/release-candidate.mts sign --dev-key --input ...` (Lite);
+`release-cli.mjs merge` refuses dev-signed entries unless `--dev` is given for a
+development manifest. `scripts/local-rehearsal.mjs --keys dev` runs the whole
+chain with them.
+
 ## Releasing the CLI
 
 Candidate build, controlled signing, immutable upload with read-back and
@@ -152,6 +165,9 @@ the release and runtime validators:
   `cpm_lite_repair_required`, `cpm_lite_install_unchanged:<cause>`,
   `cpm_lite_install_recovered:<cause>`, and
   `cpm_lite_install_may_have_changed:<cause>`.
+- Development keys: `cpm_release_dev_key_stable_refused`,
+  `cpm_product_dev_key_stable_refused`, `cpm_release_dev_key_refused`, and
+  `cpm_dev_key_purpose_invalid`.
 - Release tooling: `cpm_release_source_dirty`, `cpm_release_url_invalid`,
   `cpm_release_signing_key_missing`, `cpm_release_signing_key_invalid`,
   `cpm_release_signing_key_not_anchored`, `cpm_release_manifest_key_mismatch`,

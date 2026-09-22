@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { LiteProductCatalog } from '../cli/product-catalog.mjs';
 import { CPM_RUNTIME } from '../cli/runtime-config.mjs';
+import { devPrivateKey, devTrustAnchor } from '../dev-signing.mjs';
 import { CpmSigningProtocol } from '../signing-protocol.mjs';
 import { buildRuntimeArchive } from './build-runtime.mjs';
 
@@ -18,7 +19,7 @@ const LOCAL_BASE = 'https://rehearsal.invalid';
  * @description 无需任何长期密钥的本地发布演练：每次运行在内存中生成一次性 CPM 与产品密钥，
  * 签名本地 manifest/catalog，经真实 Bash（macOS/Linux）或 PowerShell（Windows）入口安装 CLI，
  * 再用已安装 CLI 把 Lite 装进工程。一次性私钥不落盘；所有注入只走 `CPM_TEST_MODE=1` + 本地文件门禁。
- * @param {{ liteRelease: string, workDirectory: string, project?: string, action?: string, launcher?: 'bash' | 'powershell' }} options 演练参数。
+ * @param {{ liteRelease: string, workDirectory: string, project?: string, action?: string, launcher?: 'bash' | 'powershell', keys?: 'ephemeral' | 'dev' }} options 演练参数。
  * @returns {Promise<object>} 演练证据（不含私钥）。
  */
 export async function runLocalRehearsal(options) {
@@ -26,8 +27,9 @@ export async function runLocalRehearsal(options) {
     const cpmHome = join(work, 'cpm-home');
     await mkdir(join(work, 'archives'), { recursive: true });
 
-    const cpmKey = ephemeralKey('rehearsal-cpm');
-    const productKey = ephemeralKey('rehearsal-product');
+    const devKeys = options.keys === 'dev';
+    const cpmKey = devKeys ? builtInDevKey('cpm-release') : ephemeralKey('rehearsal-cpm');
+    const productKey = devKeys ? builtInDevKey('lite-product') : ephemeralKey('rehearsal-product');
     const runtimeArchive = join(work, 'archives', `${CPM_RUNTIME.id}-${CPM_RUNTIME.version}.tgz`);
     const runtime = await buildRuntimeArchive(runtimeArchive);
     const manifestPath = join(work, 'releases.json');
@@ -58,13 +60,14 @@ export async function runLocalRehearsal(options) {
     const env = {
         ...process.env,
         CPM_TEST_MODE: '1',
+        ...(devKeys ? { CPM_DEV_KEYS: '1' } : {}),
         CPM_BOOTSTRAP_PATH: join(repositoryRoot, 'bootstrap.mjs'),
         CPM_RELEASE_MANIFEST_PATH: manifestPath,
-        CPM_TEST_TRUSTED_PUBLIC_KEYS: JSON.stringify([{ keyId: cpmKey.publicKey.keyId, value: cpmKey.publicKey.value }]),
+        ...(devKeys ? {} : { CPM_TEST_TRUSTED_PUBLIC_KEYS: JSON.stringify([{ keyId: cpmKey.publicKey.keyId, value: cpmKey.publicKey.value }]) }),
         CPM_TEST_RELEASE_ARCHIVE_PATH: runtimeArchive,
         CPM_CHANNEL: 'beta',
         CPM_HOME: cpmHome,
-        CPM_TEST_PRODUCT_TRUSTED_PUBLIC_KEYS: JSON.stringify(productAnchors),
+        ...(devKeys ? {} : { CPM_TEST_PRODUCT_TRUSTED_PUBLIC_KEYS: JSON.stringify(productAnchors) }),
         CPM_TEST_PRODUCT_ARCHIVE_DIR: join(work, 'archives'),
     };
     const launcher = (options.launcher ?? (process.platform === 'win32' ? 'powershell' : 'bash')) === 'powershell'
@@ -77,6 +80,14 @@ export async function runLocalRehearsal(options) {
         evidence.install = JSON.parse(run(process.execPath, [entry, 'lite', options.action ?? 'install', '--project', resolve(options.project), '--catalog', catalogPath, '--channel', 'beta', '--json'], env));
     }
     return evidence;
+}
+
+function builtInDevKey(purpose) {
+    const privateKey = devPrivateKey(purpose);
+    return {
+        publicKey: devTrustAnchor(purpose),
+        sign: (kind, fields) => sign(null, Buffer.from(CpmSigningProtocol.canonicalize(kind, fields), 'utf8'), privateKey).toString('base64'),
+    };
 }
 
 function ephemeralKey(keyId) {
@@ -108,7 +119,7 @@ if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]
         return index >= 0 ? process.argv[index + 1] : undefined;
     };
     try {
-        const evidence = await runLocalRehearsal({ liteRelease: option('--lite-release'), workDirectory: option('--work') ?? '', project: option('--project'), action: option('--action'), launcher: option('--launcher') });
+        const evidence = await runLocalRehearsal({ liteRelease: option('--lite-release'), workDirectory: option('--work') ?? '', project: option('--project'), action: option('--action'), launcher: option('--launcher'), keys: option('--keys') });
         process.stdout.write(`${JSON.stringify(evidence)}\n`);
     } catch (error) {
         process.stderr.write(`${error instanceof Error ? error.message : 'cpm_rehearsal_failed'}\n`);

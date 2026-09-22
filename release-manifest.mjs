@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { devKeysEnabled, devTrustAnchor, isDevKey } from './dev-signing.mjs';
 import { CpmSigningProtocol } from './signing-protocol.mjs';
 import { CPM_RELEASE_TRUST_ANCHORS } from './trust-anchors.mjs';
 
@@ -30,6 +31,10 @@ export class CpmReleaseManifest {
         if (value.releases.length > 0 && trustAnchors.length === 0) throw new Error('cpm_release_trust_anchor_missing');
         if (value.releases.length > 0 && !trustAnchors.some((anchor) => anchor.keyId === publicKey.keyId && anchor.value === publicKey.value)) throw new Error('cpm_release_trust_anchor_mismatch');
         const releases = value.releases.map((release) => this.parseRelease(release, publicKey));
+        if (releases.length > 0 && isDevKey(publicKey.value)) {
+            if (releases.some((release) => release.channel === 'stable')) throw new Error('cpm_release_dev_key_stable_refused');
+            process.emitWarning('CPM dev keys are enabled (CPM_DEV_KEYS=1); dev-signed releases are for development only and are not authentic.', { code: 'CPM_DEV_KEYS' });
+        }
         const ids = new Set();
         for (const release of releases) {
             const key = `${release.id}@${release.version}`;
@@ -38,7 +43,7 @@ export class CpmReleaseManifest {
         }
 
         function resolveTrustAnchors(options) {
-            if (options == null) return CPM_RELEASE_TRUST_ANCHORS;
+            if (options == null) return devKeysEnabled() ? [...CPM_RELEASE_TRUST_ANCHORS, devTrustAnchor('cpm-release')] : CPM_RELEASE_TRUST_ANCHORS;
             if (!isRecord(options) || options.allowTestTrustAnchors !== true || !Array.isArray(options.testTrustAnchors)) throw new Error('cpm_release_test_trust_anchor_refused');
             return options.testTrustAnchors.filter((anchor) => isRecord(anchor) && typeof anchor.keyId === 'string' && typeof anchor.value === 'string');
         }

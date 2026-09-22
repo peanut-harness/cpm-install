@@ -15,6 +15,7 @@ const runtimeFiles = Object.freeze([
     Object.freeze({ path: 'cli/product-catalog.mjs', mode: 0o644 }),
     Object.freeze({ path: 'cli/product-trust-anchors.mjs', mode: 0o644 }),
     Object.freeze({ path: 'cli/runtime-config.mjs', mode: 0o644 }),
+    Object.freeze({ path: 'dev-signing.mjs', mode: 0o644 }),
     Object.freeze({ path: 'signing-protocol.mjs', mode: 0o644 }),
     Object.freeze({ path: 'trust-anchors.mjs', mode: 0o644 }),
 ]);

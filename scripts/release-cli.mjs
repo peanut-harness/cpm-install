@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { gunzipSync } from 'node:zlib';
 
+import { devPrivateKey, devTrustAnchor, isDevKey } from '../dev-signing.mjs';
 import { CpmReleaseManifest } from '../release-manifest.mjs';
 import { CpmSigningProtocol } from '../signing-protocol.mjs';
 import { CPM_RELEASE_TRUST_ANCHORS } from '../trust-anchors.mjs';
@@ -60,7 +61,7 @@ export async function buildCandidate(outputDirectory, options = {}) {
  * @description 生成 `cpm-release-v1` 签名记录。无私钥时只能 dry-run 输出待签 payload；
  * 私钥对应公钥必须是固定信任锚（测试锚仅在 CPM_TEST_MODE=1 时可用）。
  * @param {object} candidate {@link buildCandidate} 生成的候选证据。
- * @param {{ channel: string, url: string, privateKeyPem?: string, dryRun?: boolean, env?: NodeJS.ProcessEnv }} options 签名参数。
+ * @param {{ channel: string, url: string, privateKeyPem?: string, devKey?: boolean, dryRun?: boolean, env?: NodeJS.ProcessEnv }} options 签名参数；devKey 使用内置开发密钥（拒绝 stable）。
  * @returns {object} dry-run 时为 `{ payload }`，否则为可写入 manifest 的发行记录与公钥 keyId。
  */
 export function signRelease(candidate, options) {
@@ -69,15 +70,21 @@ export function signRelease(candidate, options) {
     const fields = { id: candidate.id, version: candidate.version, channel: options.channel, url, sha256: candidate.archive.sha256 };
     const payload = CpmSigningProtocol.canonicalize('cpm-release-v1', fields);
     if (options.dryRun === true) return { payload };
-    if (typeof options.privateKeyPem !== 'string' || options.privateKeyPem.length === 0) throw new Error('cpm_release_signing_key_missing');
     let privateKey;
-    try {
-        privateKey = createPrivateKey(options.privateKeyPem);
-    } catch {
-        throw new Error('cpm_release_signing_key_invalid');
+    if (options.devKey === true) {
+        if (options.channel === 'stable') throw new Error('cpm_release_dev_key_stable_refused');
+        privateKey = devPrivateKey('cpm-release');
+    } else {
+        if (typeof options.privateKeyPem !== 'string' || options.privateKeyPem.length === 0) throw new Error('cpm_release_signing_key_missing');
+        try {
+            privateKey = createPrivateKey(options.privateKeyPem);
+        } catch {
+            throw new Error('cpm_release_signing_key_invalid');
+        }
     }
     const publicKey = createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64');
-    const anchor = signingAnchors(options.env ?? process.env).find((candidateAnchor) => candidateAnchor.value === publicKey);
+    const anchors = options.devKey === true ? [devTrustAnchor('cpm-release')] : signingAnchors(options.env ?? process.env);
+    const anchor = anchors.find((candidateAnchor) => candidateAnchor.value === publicKey);
     if (anchor == null) throw new Error('cpm_release_signing_key_not_anchored');
     const signature = sign(null, Buffer.from(payload, 'utf8'), privateKey).toString('base64');
     return { keyId: anchor.keyId, publicKey, release: { ...fields, signature } };
@@ -88,9 +95,11 @@ export function signRelease(candidate, options) {
  * @param {object} manifest 现有 manifest JSON。
  * @param {{ keyId: string, publicKey: string, release: object }} signed {@link signRelease} 输出。
  * @param {object} [parseOptions] 测试信任锚。
+ * @param {{ allowDevKey?: boolean }} [mergeOptions] 仅开发 manifest 可显式接受开发密钥记录。
  * @returns {object} 已校验的新 manifest JSON。
  */
-export function mergeManifest(manifest, signed, parseOptions) {
+export function mergeManifest(manifest, signed, parseOptions, mergeOptions = {}) {
+    if (isDevKey(signed.publicKey) && mergeOptions.allowDevKey !== true) throw new Error('cpm_release_dev_key_refused');
     const current = CpmReleaseManifest.parse(manifest, parseOptions);
     if (current.publicKey != null && (current.publicKey.keyId !== signed.keyId || current.publicKey.value !== signed.publicKey)) throw new Error('cpm_release_manifest_key_mismatch');
     const existing = current.releases.find((release) => release.id === signed.release.id && release.version === signed.release.version);
@@ -211,16 +220,17 @@ async function main(args) {
     if (command === 'build') return buildCandidate(resolve(option('--out') ?? 'release-candidate'));
     if (command === 'merge') {
         const manifestPath = option('--manifest') ?? '';
-        const merged = mergeManifest(JSON.parse(await readFile(manifestPath, 'utf8')), JSON.parse(await readFile(option('--signed') ?? '', 'utf8')));
+        const merged = mergeManifest(JSON.parse(await readFile(manifestPath, 'utf8')), JSON.parse(await readFile(option('--signed') ?? '', 'utf8')), undefined, { allowDevKey: rest.includes('--dev') });
         await writeFile(manifestPath, `${JSON.stringify(merged, null, 2)}\n`);
         return merged;
     }
     const candidate = JSON.parse(await readFile(option('--candidate') ?? '', 'utf8'));
     if (command === 'sign') {
         const dryRun = rest.includes('--dry-run');
+        const devKey = rest.includes('--dev-key');
         const keyFile = option('--key-file');
-        const privateKeyPem = dryRun ? undefined : process.env.CPM_RELEASE_SIGNING_KEY ?? (keyFile == null ? undefined : await readFile(keyFile, 'utf8'));
-        return signRelease(candidate, { channel: option('--channel') ?? 'beta', url: option('--url'), privateKeyPem, dryRun });
+        const privateKeyPem = dryRun || devKey ? undefined : process.env.CPM_RELEASE_SIGNING_KEY ?? (keyFile == null ? undefined : await readFile(keyFile, 'utf8'));
+        return signRelease(candidate, { channel: option('--channel') ?? 'beta', url: option('--url'), privateKeyPem, devKey, dryRun });
     }
     if (command === 'readback') return verifyReadback(candidate, option('--url'));
     throw new Error('cpm_release_cli_usage');

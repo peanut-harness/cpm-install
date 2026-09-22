@@ -36,3 +36,22 @@ for (const [launcher, available] of [['bash', bashAvailable], ['powershell', pow
         await rm(root, { recursive: true, force: true });
     }
 });
+
+test('local rehearsal also works with the built-in dev keys', { skip: !bashAvailable && !powershellAvailable }, async () => {
+    const root = await mkdtemp(join(tmpdir(), 'cpm-dev-rehearsal-'));
+    try {
+        const release = join(root, 'lite-release');
+        const project = join(root, 'project');
+        await mkdir(release);
+        await mkdir(project);
+        const { descriptor, archives } = liteRelease('0.2.0');
+        await writeFile(join(release, 'lite-release-descriptor.json'), JSON.stringify(descriptor));
+        for (const [name, content] of Object.entries(archives)) await writeFile(join(release, name), content);
+        await writeFile(join(project, 'package.json'), JSON.stringify({ name: 'rehearsal', creator: { version: '3.8.3' } }));
+        const evidence = await runLocalRehearsal({ liteRelease: release, workDirectory: join(root, 'work'), project, keys: 'dev', launcher: bashAvailable ? 'bash' : 'powershell' });
+        assert.equal(evidence.install.status, 'installed');
+        assert.equal(JSON.parse(await readFile(join(root, 'work', 'products.json'), 'utf8')).publicKey.keyId, 'lite-product-dev');
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});

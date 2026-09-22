@@ -14,6 +14,8 @@
 
 无长期密钥的本地演练：`scripts/local-rehearsal.mjs` 每次在内存生成一次性 CPM/产品密钥，签本地 manifest/catalog，经真实 Bash/PowerShell 入口装 CLI 再 `cpm lite` 装工程；只走 `CPM_TEST_MODE=1`+本地文件门禁，不削弱公共验签。CI `test.yml` 在 Ubuntu/macOS/Windows 跑全量测试。
 
+内置开发密钥 `dev-signing.mjs`：CPM 与产品各一把，由公开种子派生（等于公开），仅 `CPM_DEV_KEYS=1` 时信任并告警，拒绝 stable，CPM 开发键不能签产品；`sign --dev-key` 签开发包，`merge` 默认拒收开发签名。
+
 ## 硬规则
 
 - 在有签名 CPM 发行之前，必须保持拒绝安装；bootstrap 及运行时清单模块通过 HTTPS 获取，不依赖本地仓库旁的脚本文件。

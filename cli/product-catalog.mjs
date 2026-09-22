@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { devKeysEnabled, devTrustAnchor } from '../dev-signing.mjs';
 import { CpmSigningProtocol } from '../signing-protocol.mjs';
 import { CPM_RELEASE_TRUST_ANCHORS } from '../trust-anchors.mjs';
 import { LITE_PRODUCT_TRUST_ANCHORS } from './product-trust-anchors.mjs';
@@ -53,12 +54,16 @@ export class LiteProductCatalog {
         const publicKey = value.publicKey;
         if (value.products.length > 0) {
             if (!isRecord(publicKey) || typeof publicKey.keyId !== 'string' || publicKey.algorithm !== 'ed25519' || publicKey.format !== 'spki-der-base64' || typeof publicKey.value !== 'string' || publicKey.value.length === 0) throw new Error('cpm_product_public_key_missing');
-            if (CPM_RELEASE_TRUST_ANCHORS.some((anchor) => anchor.value === publicKey.value)) throw new Error('cpm_product_key_reuse');
+            if ([...CPM_RELEASE_TRUST_ANCHORS, devTrustAnchor('cpm-release')].some((anchor) => anchor.value === publicKey.value)) throw new Error('cpm_product_key_reuse');
             const trustAnchors = resolveTrustAnchors(options);
             if (trustAnchors.length === 0) throw new Error('cpm_product_trust_anchor_missing');
             if (!trustAnchors.some((anchor) => anchor.keyId === publicKey.keyId && anchor.value === publicKey.value)) throw new Error('cpm_product_trust_anchor_mismatch');
         }
         const products = value.products.map((product) => this.parseProduct(product, publicKey));
+        if (products.length > 0 && publicKey.value === devTrustAnchor('lite-product').value) {
+            if (products.some((product) => product.channel === 'stable')) throw new Error('cpm_product_dev_key_stable_refused');
+            process.emitWarning('CPM dev keys are enabled (CPM_DEV_KEYS=1); dev-signed Lite products are for development only and are not authentic.', { code: 'CPM_DEV_KEYS' });
+        }
         const keys = new Set();
         for (const product of products) {
             const key = `${product.id}@${product.version}`;
@@ -151,7 +156,7 @@ export class LiteProductCatalog {
 }
 
 function resolveTrustAnchors(options) {
-    if (options == null) return LITE_PRODUCT_TRUST_ANCHORS;
+    if (options == null) return devKeysEnabled() ? [...LITE_PRODUCT_TRUST_ANCHORS, devTrustAnchor('lite-product')] : LITE_PRODUCT_TRUST_ANCHORS;
     if (!isRecord(options) || options.allowTestTrustAnchors !== true || !Array.isArray(options.testTrustAnchors)) throw new Error('cpm_product_test_trust_anchor_refused');
     return options.testTrustAnchors.filter((anchor) => isRecord(anchor) && typeof anchor.keyId === 'string' && typeof anchor.value === 'string');
 }
