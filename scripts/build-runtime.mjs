@@ -12,23 +12,32 @@ const runtimeFiles = Object.freeze([
     Object.freeze({ path: 'cli/runtime-config.mjs', mode: 0o644 }),
 ]);
 
-export async function buildRuntimeArchive(outputPath) {
+export async function buildRuntimeArchive(outputPath, options = {}) {
     if (typeof outputPath !== 'string' || outputPath.length === 0) throw new Error('cpm_runtime_output_path_missing');
 
-    const files = await Promise.all(runtimeFiles.map(async (record) => {
-        const content = await readFile(resolve(repositoryRoot, record.path));
+    const sourceFiles = options.files ?? runtimeFiles;
+    if (!Array.isArray(sourceFiles) || sourceFiles.length === 0 || new Set(sourceFiles.map((record) => record.path)).size !== sourceFiles.length || sourceFiles.some((record) => !isSafeRuntimePath(record.path))) {
+        throw new Error('cpm_runtime_build_files_invalid');
+    }
+    const files = await Promise.all(sourceFiles.map(async (record) => {
+        const content = record.content == null ? await readFile(resolve(repositoryRoot, record.path)) : Buffer.from(record.content);
         return Object.freeze({
-            ...record,
+            path: record.path,
+            mode: record.mode ?? 0o644,
             content,
             sha256: createHash('sha256').update(content).digest('hex'),
         });
     }));
     const runtime = await import(pathToFileURL(resolve(repositoryRoot, 'cli/runtime-config.mjs')).href);
+    const identity = options.identity ?? runtime.CPM_RUNTIME;
+    if (identity?.schemaVersion !== 1 || typeof identity.id !== 'string' || typeof identity.version !== 'string' || !/^\d+\.\d+\.\d+$/u.test(identity.version)) {
+        throw new Error('cpm_runtime_build_identity_invalid');
+    }
     const manifest = {
-        schemaVersion: runtime.CPM_RUNTIME.schemaVersion,
-        id: runtime.CPM_RUNTIME.id,
-        version: runtime.CPM_RUNTIME.version,
-        entry: 'cli/cpm.mjs',
+        schemaVersion: identity.schemaVersion,
+        id: identity.id,
+        version: identity.version,
+        entry: options.entry ?? 'cli/cpm.mjs',
         files: files.map(({ path, sha256 }) => ({ path, sha256 })),
     };
     const manifestContent = Buffer.from(`${JSON.stringify(manifest, null, 4)}\n`, 'utf8');
@@ -91,6 +100,13 @@ function writeOctal(buffer, offset, length, value) {
 function writeChecksum(buffer, value) {
     const encoded = Buffer.from(`${value.toString(8).padStart(6, '0')}\0 `, 'ascii');
     encoded.copy(buffer, 148);
+}
+
+function isSafeRuntimePath(value) {
+    return typeof value === 'string'
+        && value.length > 0
+        && !value.startsWith('/')
+        && !value.split('/').some((segment) => segment === '' || segment === '.' || segment === '..' || segment.startsWith('.'));
 }
 
 if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import { CPM_RUNTIME } from './runtime-config.mjs';
@@ -14,6 +15,6 @@ export function run(args, output = process.stdout, errorOutput = process.stderr)
     return 2;
 }
 
-if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] != null && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
     process.exitCode = run(process.argv.slice(2));
 }

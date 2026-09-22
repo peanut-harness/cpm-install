@@ -1,6 +1,5 @@
 import { CpmReleaseManifest } from './release-manifest.mjs';
-import { CpmRuntimeManifest } from './runtime-manifest.mjs';
-import { lstat } from 'node:fs/promises';
+import { CpmRuntimeInstallTransaction } from './transaction/runtime-install-transaction.mjs';
 
 /**
  * @description CPM bootstrap 的 release 解析与安全门禁。
@@ -10,8 +9,9 @@ export class CpmBootstrap {
      * @description 创建 bootstrap，并允许测试注入 Fetch 实现。
      * @param fetchImpl 可选 Fetch 实现。
      */
-    constructor(fetchImpl = fetch) {
+    constructor(fetchImpl = fetch, installOptions = {}) {
         this.fetchImpl = fetchImpl;
+        this.installOptions = installOptions;
     }
 
     /**
@@ -49,51 +49,7 @@ export class CpmBootstrap {
      * @returns 实际写入的发行文件路径。
      */
     async install(release, installRoot) {
-        if (!release || typeof installRoot !== 'string' || installRoot.length === 0) throw new Error('cpm_install_input_invalid');
-        const response = await this.fetchImpl(release.url, { redirect: 'error' });
-        if (!response.ok) throw new Error(`cpm_release_request_refused:${response.status}`);
-        const content = new Uint8Array(await response.arrayBuffer());
-        if (!CpmReleaseManifest.verifyDigest(content, release.sha256)) throw new Error('cpm_release_digest_mismatch');
-        const { mkdir, writeFile, rename, rm, mkdtemp, readdir, readFile } = await import('node:fs/promises');
-        const { join } = await import('node:path');
-        const { execFile } = await import('node:child_process');
-        const { promisify } = await import('node:util');
-        const runFile = promisify(execFile);
-        await mkdir(installRoot, { recursive: true });
-        const archive = join(installRoot, `.download-${release.id}-${release.version}-${process.pid}.tgz`);
-        const temporary = `${archive}.tmp`;
-        await writeFile(temporary, content, { flag: 'wx' });
-        try {
-            await rename(temporary, archive);
-            const staging = await mkdtemp(join(installRoot, `.staging-${release.id}-${release.version}-`));
-            let destination;
-            try {
-                const archiveEntries = (await runFile('tar', ['-tzf', archive])).stdout.split('\n').filter(Boolean);
-                if (archiveEntries.some((entry) => !isSafeArchivePath(entry))) throw new Error('cpm_runtime_archive_path_invalid');
-                await runFile('tar', ['-xzf', archive, '-C', staging]);
-                const entries = await readdir(staging, { withFileTypes: true });
-                if (entries.some((entry) => entry.name !== 'runtime.manifest.json' && entry.name.startsWith('.'))) throw new Error('cpm_runtime_hidden_path_rejected');
-                const manifestPath = join(staging, 'runtime.manifest.json');
-                const manifest = CpmRuntimeManifest.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
-                if (manifest.id !== release.id || manifest.version !== release.version) throw new Error('cpm_runtime_release_mismatch');
-                await CpmRuntimeManifest.verifyDirectory(staging, manifest);
-                destination = join(installRoot, 'versions', release.id, release.version);
-                if (await exists(destination)) throw new Error('cpm_runtime_version_already_installed');
-                await mkdir(join(installRoot, 'versions', release.id), { recursive: true });
-                await rename(staging, destination);
-                await writeFile(join(installRoot, 'current.json.tmp'), `${JSON.stringify({ schemaVersion: 1, id: release.id, version: release.version, path: `versions/${release.id}/${release.version}` }, null, 4)}\n`, { flag: 'wx' });
-                await rename(join(installRoot, 'current.json.tmp'), join(installRoot, 'current.json'));
-                return destination;
-            } catch (error) {
-                await rm(staging, { recursive: true, force: true });
-                if (destination) await rm(destination, { recursive: true, force: true });
-                throw error;
-            }
-        } catch (error) {
-            await rm(temporary, { force: true });
-            await rm(archive, { force: true });
-            throw error;
-        }
+        return new CpmRuntimeInstallTransaction(this.fetchImpl, this.installOptions).install(release, installRoot);
     }
 }
 
@@ -107,21 +63,6 @@ function testTrustAnchorOptions() {
         throw new Error('cpm_release_test_trust_anchor_invalid');
     }
     return { allowTestTrustAnchors: true, testTrustAnchors: anchors };
-}
-
-function isSafeArchivePath(value) {
-    const normalized = value.replace(/\\/g, '/').replace(/\/$/u, '');
-    return normalized.length > 0 && !normalized.startsWith('/') && !normalized.split('/').some((segment) => segment === '..' || segment === '.');
-}
-
-async function exists(path) {
-    try {
-        await lstat(path);
-        return true;
-    } catch (error) {
-        if (error?.code === 'ENOENT') return false;
-        throw error;
-    }
 }
 
 if (process.argv[1]?.endsWith('bootstrap.mjs')) {

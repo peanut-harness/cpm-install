@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { CpmBootstrap } from '../bootstrap.mjs';
+import { buildRuntimeArchive } from '../scripts/build-runtime.mjs';
 
 test('refuses bootstrap when the selected channel has no release', async () => {
     const root = await mkdtemp(join(tmpdir(), 'cpm-bootstrap-'));
@@ -46,25 +47,14 @@ test('rejects a release whose downloaded bytes do not match the manifest digest'
 
 test('installs a tar.gz runtime only after runtime manifest and file digests pass', async () => {
     const root = await mkdtemp(join(tmpdir(), 'cpm-bootstrap-runtime-'));
-    const staging = await mkdtemp(join(tmpdir(), 'cpm-bootstrap-archive-'));
     try {
-        const { mkdir, writeFile: write, readFile: read, rm: remove } = await import('node:fs/promises');
-        const { execFile } = await import('node:child_process');
-        const { promisify } = await import('node:util');
-        const run = promisify(execFile);
-        const cli = 'bin/cpm';
-        await mkdir(join(staging, 'bin'), { recursive: true });
-        await write(join(staging, cli), '#!/usr/bin/env node\n');
-        const digest = (await import('node:crypto')).createHash('sha256').update('#!/usr/bin/env node\n').digest('hex');
-        await write(join(staging, 'runtime.manifest.json'), JSON.stringify({ schemaVersion: 1, id: 'peanut-cpm-cli', version: '1.0.0', entry: cli, files: [{ path: cli, sha256: digest }] }));
         const archive = join(root, 'cli.tgz');
-        await run('tar', ['-czf', archive, '-C', staging, 'runtime.manifest.json', cli]);
-        const content = await read(archive);
+        await buildRuntimeArchive(archive);
+        const content = await (await import('node:fs/promises')).readFile(archive);
         const bootstrap = new CpmBootstrap(async () => ({ ok: true, arrayBuffer: async () => content.buffer }));
         const path = await bootstrap.install({ id: 'peanut-cpm-cli', version: '1.0.0', channel: 'stable', url: 'https://example.test/cpm-cli.tgz', sha256: (await import('node:crypto')).createHash('sha256').update(content).digest('hex'), signature: 'verified-by-manifest' }, join(root, 'install'));
         assert.equal(path.endsWith('/versions/peanut-cpm-cli/1.0.0'), true);
-        assert.equal((await read(join(path, cli), 'utf8')).includes('node'), true);
-        await remove(staging, { recursive: true, force: true });
+        assert.equal((await (await import('node:fs/promises')).readFile(join(path, 'cli/cpm.mjs'), 'utf8')).includes('version --json'), true);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
