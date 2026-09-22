@@ -1,5 +1,6 @@
 import { CpmReleaseManifest } from './release-manifest.mjs';
 import { CpmRuntimeInstallTransaction } from './transaction/runtime-install-transaction.mjs';
+import { readFile } from 'node:fs/promises';
 
 /**
  * @description CPM bootstrap 的 release 解析与安全门禁。
@@ -35,10 +36,12 @@ export class CpmBootstrap {
     async readManifest(source) {
         if (typeof source !== 'string' || source.length === 0) throw new Error('cpm_release_manifest_source_missing');
         if (source.startsWith('https://')) {
+            this.localTestManifest = false;
             const response = await this.fetchImpl(source, { redirect: 'error' });
             if (!response.ok) throw new Error(`cpm_release_manifest_request_refused:${response.status}`);
             return CpmReleaseManifest.parse(await response.json());
         }
+        this.localTestManifest = process.env.CPM_TEST_MODE === '1';
         return CpmReleaseManifest.read(source, testTrustAnchorOptions());
     }
 
@@ -49,7 +52,19 @@ export class CpmBootstrap {
      * @returns 实际写入的发行文件路径。
      */
     async install(release, installRoot) {
-        return new CpmRuntimeInstallTransaction(this.fetchImpl, this.installOptions).install(release, installRoot);
+        return new CpmRuntimeInstallTransaction(this.installFetch(), this.installOptions).install(release, installRoot);
+    }
+
+    installFetch() {
+        const archivePath = process.env.CPM_TEST_RELEASE_ARCHIVE_PATH;
+        if (!this.localTestManifest || process.env.CPM_TEST_MODE !== '1' || archivePath == null) return this.fetchImpl;
+        return async () => {
+            const content = await readFile(archivePath);
+            return {
+                ok: true,
+                arrayBuffer: async () => content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength),
+            };
+        };
     }
 }
 
@@ -67,8 +82,16 @@ function testTrustAnchorOptions() {
 
 if (process.argv[1]?.endsWith('bootstrap.mjs')) {
     try {
-        const release = await new CpmBootstrap().resolve(process.argv[2], process.argv[3] ?? 'stable');
-        process.stdout.write(`${JSON.stringify(release)}\n`);
+        const bootstrap = new CpmBootstrap();
+        if (process.argv[2] === 'install') {
+            const release = await bootstrap.resolve(process.argv[3], process.argv[4] ?? 'stable');
+            const installRoot = process.argv[5];
+            const path = await bootstrap.install(release, installRoot);
+            process.stdout.write(`${JSON.stringify({ schemaVersion: 1, id: release.id, version: release.version, path })}\n`);
+        } else {
+            const release = await bootstrap.resolve(process.argv[2], process.argv[3] ?? 'stable');
+            process.stdout.write(`${JSON.stringify(release)}\n`);
+        }
     } catch (error) {
         process.stderr.write(`${error instanceof Error ? error.message : 'cpm_bootstrap_failed'}\n`);
         process.exitCode = 1;

@@ -24,11 +24,12 @@ async function runLauncher(command, args) {
                 CPM_BOOTSTRAP_PATH: join(repositoryRoot, 'bootstrap.mjs'),
                 CPM_RELEASE_MANIFEST_PATH: manifest,
                 CPM_PROJECT: project,
+                CPM_HOME: join(root, 'install'),
             },
         });
         assert.equal(result.error, undefined);
         assert.equal(result.status, 1);
-        assert.match(`${result.stdout}\n${result.stderr}`, /No project changes were made\./u);
+        assert.match(`${result.stdout}\n${result.stderr}`, /failed without changing the selected current version/u);
         assert.deepEqual(await readdir(root), before);
         assert.equal(await readFile(project, 'utf8'), 'sentinel\n');
     } finally {

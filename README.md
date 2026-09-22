@@ -2,7 +2,7 @@
 
 Public, minimal installation endpoint for the Peanut Harness CPM command line tool.
 
-This repository intentionally contains no private product binaries or credentials. Until a signed CPM release is published, both bootstrap scripts fail closed without changing a project.
+This repository intentionally contains no private product binaries or credentials. Until a signed CPM release is published to the stable channel, both bootstrap scripts fail closed without changing a project.
 
 `releases.json` uses schema version 2. Each release is selected by channel,
 requires an HTTPS URL and SHA-256 digest, and carries an Ed25519 signature over
@@ -30,11 +30,21 @@ Local tests may set `CPM_TEST_MODE=1` together with
 refused unless the explicit test gate is active and is never consulted for an
 HTTPS manifest.
 
-## Fail-closed compatibility baseline
+## Launcher behavior
 
-Until automatic CLI installation is enabled, both launchers exit with status 1
-and print `No project changes were made.` Tests run them against only temporary
-fixtures and verify that the requested project is unchanged.
+Both launchers resolve the pinned manifest, install the verified CLI runtime
+atomically under `CPM_HOME` (default `~/.peanut/cpm`), and print a structured
+identity on stdout: `{"schemaVersion":1,"id":…,"version":…,"path":…}`.
+Warnings go to stderr so stdout stays machine-readable. An empty or invalid
+manifest still exits 1 with
+`CPM installation failed without changing the selected current version.` and
+leaves the requested project untouched; the launchers never run a project
+command. The stable manifest stays empty until a signed release is published,
+so public installs keep failing closed.
+
+Local tests may additionally set `CPM_TEST_RELEASE_ARCHIVE_PATH` to install a
+locally built runtime archive; it is honored only with `CPM_TEST_MODE=1` and a
+local manifest. Tests run the launchers against temporary fixtures only.
 
 The following machine-readable error codes are the compatibility baseline for
 the release and runtime validators:
