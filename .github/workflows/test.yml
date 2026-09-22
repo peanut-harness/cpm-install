@@ -32,3 +32,10 @@ jobs:
         run: |
           summary="$(grep -E -A14 '^(not ok|✖|  ✖)' test-output.txt | head -150 | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')"
           echo "::error title=node --test failures on ${{ matrix.os }}::${summary}"
+      - name: Report test counts
+        if: always()
+        shell: bash
+        run: |
+          counts="$(grep -E '^# (tests|pass|fail|skipped) ' test-output.txt | tr '\n' ' ')"
+          skipped="$(grep -E '# SKIP' test-output.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          echo "::notice title=node --test on ${{ matrix.os }}::${counts}%0A${skipped}"
